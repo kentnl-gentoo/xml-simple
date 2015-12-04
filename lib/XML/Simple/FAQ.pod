@@ -1,11 +1,7 @@
-package XML::Simple::FAQ;
-$XML::Simple::FAQ::VERSION = '2.21';
-1;
 
-__END__
+=head1 NAME
 
-=head1 Frequently Asked Questions about XML::Simple
-
+XML::Simple::FAQ - Frequently Asked Questions about XML::Simple
 
 =head1 Basics
 
