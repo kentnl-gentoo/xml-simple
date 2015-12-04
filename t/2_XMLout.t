@@ -3,6 +3,8 @@ use strict;
 use warnings;
 use Test::More;
 
+use FileHandle;   # Workaround for test failures on RHEL
+
 plan tests => 201;
 
 
@@ -517,7 +519,7 @@ unlink($TestFile);
 ok(!-e $TestFile, 'output file does not exist');
 
 $xml = XMLout($hashref1);
-eval { XMLout($hashref1, outputfile => $TestFile); };
+XMLout($hashref1, outputfile => $TestFile);
 ok(-e $TestFile, 'created xml output file');
 is(ReadFile($TestFile), $xml, 'Contents match expectations');
 unlink($TestFile);
@@ -526,11 +528,9 @@ unlink($TestFile);
 # Test output to an IO handle
 
 ok(!-e $TestFile);
-eval {
-  open my $fh, '>', $TestFile or die "$!";
-  XMLout($hashref1, outputfile => $fh);
-  $fh->close();
-};
+open my $fh, '>', $TestFile or die "$!";
+XMLout($hashref1, outputfile => $fh);
+$fh->close();
 ok(-e $TestFile, 'create XML output file via IO::File');
 is(ReadFile($TestFile), $xml, 'Contents match expectations');
 unlink($TestFile);
@@ -646,7 +646,6 @@ like($_, qr{^\s*<(\w+)\s*>\s*<nnn>\s*<nnn>\s*</\1\s*>\s*$}, 'document OK');
 # Check undefined values generate warnings
 
 {
-  local($^W) = 1;
   my $warn = '';
   local $SIG{__WARN__} = sub { $warn = $_[0] };
   $ref = { 'one' => 1, 'two' => undef };
@@ -656,10 +655,15 @@ like($_, qr{^\s*<(\w+)\s*>\s*<nnn>\s*<nnn>\s*</\1\s*>\s*$}, 'document OK');
   like($warn, qr/Use of uninitialized value/,
     'caught warning re uninitialised value');
   like($_, $expect, 'undef maps to any empty attribute by default');
+}
 
+{
   # unless warnings are disabled
-  $^W = 0;
-  $warn = '';
+  no warnings;
+  my $warn = '';
+  local $SIG{__WARN__} = sub { $warn = $_[0] };
+  my $expect = qr/^<\w+(\s+one="1"|\s+two=""){2}/;
+
   $_ = XMLout($ref);
   is($warn, '', 'no warning re uninitialised value if warnings off');
   like($_, $expect, 'undef still maps to any empty attribute');
@@ -754,18 +758,15 @@ like($_, qr{^\s*<opt\s+one="1">text</opt>\s*$}s, 'even with "-" prefix');
 # Confirm content key works with undef values (and no warnings)
 
 {
-  $^W = 1;
   my $warn = '';
   local $SIG{__WARN__} = sub { $warn = $_[0] };
-  $_ = eval {
-    $ref = {
-      column => [
-        { name => 'title',   content => 'A Title' },
-        { name => 'sponsor', content => undef },
-      ],
-    };
-    XMLout($ref, suppress_empty => undef, content_key => 'content');
+  $ref = {
+    column => [
+      { name => 'title',   content => 'A Title' },
+      { name => 'sponsor', content => undef },
+    ],
   };
+  $_ = XMLout($ref, suppress_empty => undef, content_key => 'content');
   ok(!$warn,  'no warnings with suppress_empty => undef');
   like($_, qr{^<(\w+)>
       \s*<column\s+name="title"\s*>A\sTitle</column>

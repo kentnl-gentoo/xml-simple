@@ -6,10 +6,6 @@ use IO::File;
 use File::Spec;
 
 
-# The suppress-able warnings still check the global flag
-
-$^W = 1;
-
 # Initialise filenames and check they're there
 
 my $XMLFile = File::Spec->catfile('t', 'test1.xml');  # t/test1.xml
@@ -41,8 +37,7 @@ $ENV{XML_SIMPLE_PREFERRED_PARSER} = 'XML::Parser';
 {
   local($SIG{__WARN__}) = \&warn_handler;
 
-  $@ = '';
-  $opt = eval { XMLin('<x y="z" />', nsexpand => 1) };
+  $opt = XMLin('<x y="z" />', nsexpand => 1);
 }
 
 isnt($last_warning, '', "Parsing caused warning (as expected)");
@@ -56,9 +51,8 @@ is_deeply($opt, {y => 'z'}, "Parsing was successful");
 {
   local($SIG{__WARN__}) = \&warn_handler;
 
-  $@ = '';
   $last_warning = '';
-  $opt = eval { XMLin('<x y="z" />', ParserOpts => [ ParseParamEnt => 1 ]) };
+  $opt = XMLin('<x y="z" />', ParserOpts => [ ParseParamEnt => 1 ]);
 }
 
 isnt($last_warning, '', "Using ParserOpts caused warning (as expected)");
@@ -70,12 +64,11 @@ is_deeply($opt, {y => 'z'}, "Parsing was successful");
 # Check it doesn't happen if warnings disabled
 
 {
+  no warnings;
   local($SIG{__WARN__}) = \&warn_handler;
 
-  $@ = '';
   $last_warning = '';
-  local($^W) = 0;
-  $opt = eval { XMLin('<x y="z" />', ParserOpts => [ ParseParamEnt => 1 ]) };
+  $opt = XMLin('<x y="z" />', ParserOpts => [ ParseParamEnt => 1 ]);
 }
 
 is($last_warning, '', "ParserOpts warning uppressed successfully");
@@ -85,7 +78,6 @@ is_deeply($opt, {y => 'z'}, "Parsing was successful");
 
 # Try parsing a string
 
-$@ = '';
 $opt = eval {
   XMLin(q(<opt name1="value1" name2="value2"></opt>));
 };
@@ -101,7 +93,6 @@ is_deeply($opt, $expected, 'matches expectations (attributes)');
 
 # Try parsing a named external file
 
-$@ = '';
 $opt = eval{ XMLin($XMLFile); };
 is($@, '', "XML::Parser didn't choke on named external file");
 is_deeply($opt, {
@@ -111,7 +102,6 @@ is_deeply($opt, {
 
 # Try parsing from an IO::Handle
 
-$@ = '';
 my $fh = new IO::File;
 $XMLFile = File::Spec->catfile('t', '1_XMLin.xml');  # t/1_XMLin.xml
 eval {

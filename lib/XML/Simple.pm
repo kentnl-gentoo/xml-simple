@@ -1,13 +1,13 @@
 package XML::Simple;
-BEGIN {
-  $XML::Simple::VERSION = '2.20';
-}
-
+$XML::Simple::VERSION = '2.21';
 =head1 NAME
 
-XML::Simple - Easily read/write XML (esp config files)
+XML::Simple - An API for simple XML files
 
 =head1 SYNOPSIS
+
+You really don't want to use this module in new code.  If you ignore this
+warning and use it anyway, the C<qw(:strict)> mode will save you a little pain.
 
     use XML::Simple qw(:strict);
 
@@ -38,6 +38,8 @@ not to imply items should be supplied in arrayrefs.
 # Load essentials here, other modules loaded on demand later
 
 use strict;
+use warnings;
+use warnings::register;
 use Carp;
 require Exporter;
 
@@ -326,7 +328,10 @@ sub default_config_file {
 sub build_simple_tree {
   my $self = shift;
 
-  my $tree = $self->build_tree(@_);
+  my $tree = eval {
+    $self->build_tree(@_);
+  };
+  Carp::croak("$@XML::Simple called") if $@;
 
   return $self->{opt}->{keeproot}
          ? $self->collapse({}, @$tree)
@@ -787,7 +792,7 @@ sub handle_options  {
   }
 
   if(exists($opt->{parseropts})) {
-    if($^W) {
+    if(warnings::enabled()) {
       carp "Warning: " .
            "'ParserOpts' is deprecated, contact the author if you need it";
     }
@@ -1010,7 +1015,7 @@ sub collapse {
 
   if(my $var = $self->{_var_values}) {
     while(my($key, $val) = each(%$attr)) {
-      $val =~ s{\$\{([\w.]+)\}}{ $self->get_var($1) }ge;
+      $val =~ s^\$\{([\w.]+)\}^ $self->get_var($1) ^ge;
       $attr->{$key} = $val;
     }
   }
@@ -1047,7 +1052,7 @@ sub collapse {
       # do variable substitutions
 
       if(my $var = $self->{_var_values}) {
-        $val =~ s{\$\{(\w+)\}}{ $self->get_var($1) }ge;
+        $val =~ s^\$\{(\w+)\}^ $self->get_var($1) ^ge;
       }
 
 
@@ -1321,15 +1326,15 @@ sub array_to_hash {
 # 3. ignores message and returns silently if neither strict mode nor warnings
 #    are enabled
 #
-# Option 2 looks at the global warnings variable $^W - which is not really
-# appropriate in the modern world of lexical warnings - TODO: Fix
 
 sub die_or_warn {
   my $self = shift;
   my $msg  = shift;
 
   croak $msg if($self->{opt}->{strictmode});
-  carp "Warning: $msg" if($^W);
+  if(warnings::enabled()) {
+    carp "Warning: $msg";
+  }
 }
 
 
@@ -1354,7 +1359,7 @@ sub new_hashref {
 #
 # Arguments expected are:
 # - an XML::Simple object
-# - a hasref
+# - a hashref
 # the hashref is a former array, turned into a hash by array_to_hash because
 # of the presence of key attributes
 # at this point collapse_content avoids over-complicated structures like
@@ -1547,7 +1552,7 @@ sub value_to_xml {
           unless(exists($self->{opt}->{suppressempty})
              and !defined($self->{opt}->{suppressempty})
           ) {
-            carp 'Use of uninitialized value' if($^W);
+            carp 'Use of uninitialized value' if warnings::enabled();
           }
           if($key eq $self->{opt}->{contentkey}) {
             $text_content = '';
@@ -1890,10 +1895,12 @@ __END__
 
 The use of this module in new code is discouraged.  Other modules are available
 which provide more straightforward and consistent interfaces.  In particular,
-L<XML::LibXML> is highly recommended.
+L<XML::LibXML> is highly recommended and L<XML::Twig> is an excellent
+alternative.
 
-The major problems with this module are the large number of options and the
-arbitrary ways in which these options interact - often with unexpected results.
+The major problems with this module are the large number of options (some of
+which have unfortunate defaults) and the arbitrary ways in which these options
+interact - often producing unexpected results.
 
 Patches with bug fixes and documentation fixes are welcome, but new features
 are unlikely to be added.
@@ -1995,7 +2002,7 @@ case, you might want to read L<"WHERE TO FROM HERE?">.
 
 The XML::Simple module provides a simple API layer on top of an underlying XML
 parsing module (either XML::Parser or one of the SAX2 parser modules).  Two
-functions are exported: C<XMLin()> and C<XMLout()>.  Note: you can explicity
+functions are exported: C<XMLin()> and C<XMLout()>.  Note: you can explicitly
 request the lower case versions of the function names: C<xml_in()> and
 C<xml_out()>.
 
@@ -2470,7 +2477,7 @@ rolled up into a scalar rather than an array and therefore will not be folded
 
 =head2 KeyAttr => { list } I<# in+out - important>
 
-This alternative (and preferred) method of specifiying the key attributes
+This alternative (and preferred) method of specifying the key attributes
 allows more fine grained control over which elements are folded and on which
 attributes.  For example the option 'KeyAttr => { package => 'id' } will cause
 any package elements to be folded on the 'id' attribute.  No other elements
@@ -2479,7 +2486,8 @@ which have an 'id' attribute will be folded at all.
 Note: C<XMLin()> will generate a warning (or a fatal error in L<"STRICT MODE">)
 if this syntax is used and an element which does not have the specified key
 attribute is encountered (eg: a 'package' element without an 'id' attribute, to
-use the example above).  Warnings will only be generated if B<-w> is in force.
+use the example above).  Warnings can be suppressed with the lexical
+C<no warnings;> pragma or C<no warnings 'XML::Simple';>.
 
 Two further variations are made possible by prefixing a '+' or a '-' character
 to the attribute name:
@@ -2944,8 +2952,8 @@ KeyAttr hash.
 
 Data error - KeyAttr is set to say { part => 'partnum' } but the XML contains
 one or more E<lt>partE<gt> elements without a 'partnum' attribute (or nested
-element).  Note: if strict mode is not set but -w is, this condition triggers a
-warning.
+element).  Note: if strict mode is not set but C<use warnings;> is in force,
+this condition triggers a warning.
 
 =item *
 
@@ -3233,7 +3241,7 @@ The <anon> tag can be used to form anonymous arrays:
                 ]
     }
 
-Anonymous arrays can be nested to arbirtrary levels and as a special case, if
+Anonymous arrays can be nested to arbitrary levels and as a special case, if
 the surrounding tags for an XML document contain only an anonymous array the
 arrayref will be returned directly rather than the usual hashref:
 
@@ -3299,7 +3307,7 @@ You don't need help converting between different encodings
 =back
 
 In a serious XML project, you'll probably outgrow these assumptions fairly
-quickly.  This section of the document used to offer some advice on chosing a
+quickly.  This section of the document used to offer some advice on choosing a
 more powerful option.  That advice has now grown into the 'Perl-XML FAQ'
 document which you can find at: L<http://perl-xml.sourceforge.net/faq/>
 
@@ -3307,7 +3315,7 @@ The advice in the FAQ boils down to a quick explanation of tree versus
 event based parsers and then recommends:
 
 For event based parsing, use SAX (do not set out to write any new code for
-XML::Parser's handler API - it is obselete).
+XML::Parser's handler API - it is obsolete).
 
 For tree-based parsing, you could choose between the 'Perlish' approach of
 L<XML::Twig> and more standards based DOM implementations - preferably one with
