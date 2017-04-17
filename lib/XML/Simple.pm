@@ -1,5 +1,5 @@
 package XML::Simple;
-$XML::Simple::VERSION = '2.23';
+$XML::Simple::VERSION = '2.24';
 =head1 NAME
 
 XML::Simple - An API for simple XML files
@@ -54,7 +54,6 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK $PREFERRED_PARSER);
 @ISA               = qw(Exporter);
 @EXPORT            = qw(XMLin XMLout);
 @EXPORT_OK         = qw(xml_in xml_out);
-$PREFERRED_PARSER  = undef;
 
 my %StrictMode     = ();
 
@@ -1431,8 +1430,8 @@ sub value_to_xml {
   my $refaddr = Scalar::Util::refaddr($ref);
   if($refaddr) {
     croak "circular data structures not supported"
-      if $self->{ancestors}->{$refaddr};
-    $self->{ancestors}->{$refaddr} = $ref;  # keep ref alive until we delete it
+      if $self->{_ancestors}->{$refaddr};
+    $self->{_ancestors}->{$refaddr} = $ref;  # keep ref alive until we delete it
   }
   else {
     if($named) {
@@ -1650,7 +1649,7 @@ sub value_to_xml {
   }
 
 
-  delete $self->{ancestors}->{$refaddr};
+  delete $self->{_ancestors}->{$refaddr};
 
   return(join('', @result));
 }

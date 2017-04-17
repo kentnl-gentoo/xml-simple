@@ -20,4 +20,4 @@ requires:
   perl: '5.008'
 resources:
   repository: git://github.com/grantm/xml-simple.git
-version: '2.23'
+version: '2.24'
