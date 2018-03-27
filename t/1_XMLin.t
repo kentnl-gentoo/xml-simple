@@ -6,6 +6,9 @@ use IO::File;
 use File::Spec;
 
 use XML::Simple;
+use XML::SAX;
+
+$XML::SAX::ParserPackage = "XML::SAX::PurePerl";
 
 # Initialise filenames and check they're there
 

@@ -26,7 +26,9 @@ sub ReadFile {
 }
 
 use XML::Simple;
+use XML::SAX;
 
+$XML::SAX::ParserPackage = "XML::SAX::PurePerl";
 # Confirm error when mandatory parameter missing
 
 $_ = eval {
